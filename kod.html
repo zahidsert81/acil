@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Konum Bulucu | Akıllı Harita ve Favori Konum Uygulaması</title>
+<meta name="description" content="Google hesabınızla giriş yapın, adres arayın, konum bulun, favorilerinize kaydedin ve navigasyonu başlatın.">
+<meta name="theme-color" content="#1a73e8">
+
+<!-- Google Fonts: Roboto - Material Design'ın standart yazı tipi -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Google+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   KONUM BULUCU - MATERIAL DESIGN TEMA DEĞİŞKENLERİ
+   ============================================================ */
+:root{
+  --md-primary:#1a73e8;
+  --md-primary-dark:#174ea6;
+  --md-primary-light:#e8f0fe;
+  --md-accent:#188038;
+  --md-danger:#d93025;
+  --md-warning:#f9ab00;
+  --md-surface:#ffffff;
+  --md-background:#f1f3f4;
+  --md-on-surface:#202124;
+  --md-on-surface-secondary:#5f6368;
+  --md-border:#dadce0;
+  --md-shadow-1: 0 1px 2px 0 rgba(60,64,67,.30), 0 1px 3px 1px rgba(60,64,67,.15);
+  --md-shadow-2: 0 1px 2px 0 rgba(60,64,67,.30), 0 2px 6px 2px rgba(60,64,67,.15);
+  --md-shadow-3: 0 4px 8px 3px rgba(60,64,67,.15), 0 1px 3px rgba(60,64,67,.30);
+  --md-radius-sm:8px;
+  --md-radius-md:16px;
+  --md-radius-lg:28px;
+  --topbar-height:64px;
+  --transition-fast:150ms cubic-bezier(.4,0,.2,1);
+  --transition-medium:280ms cubic-bezier(.4,0,.2,1);
+}
+
+/* Karanlık mod değişkenleri */
+body.dark-mode{
+  --md-surface:#202124;
+  --md-background:#121212;
+  --md-on-surface:#e8eaed;
+  --md-on-surface-secondary:#9aa0a6;
+  --md-border:#3c4043;
+  --md-primary-light:#28324a;
+}
+
+*,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+
+html,body{
+  height:100%;
+  width:100%;
+  overflow:hidden;
+  font-family:'Roboto', Arial, sans-serif;
+  background:var(--md-background);
+  color:var(--md-on-surface);
+  -webkit-font-smoothing:antialiased;
+}
+
+button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+input{ font-family:inherit; }
+a{ color:inherit; text-decoration:none; }
+
+/* Erişilebilirlik: klavye odak halkası */
+button:focus-visible, input:focus-visible, [tabindex]:focus-visible{
+  outline:3px solid var(--md-warning);
+  outline-offset:2px;
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
+}
+
+/* ============================================================
+   YÜKLEME EKRANI (LOADING SCREEN)
+   ============================================================ */
+#loading-screen{
+  position:fixed; inset:0; z-index:9999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:20px;
+  background:linear-gradient(135deg,#1a73e8 0%, #174ea6 55%, #0d3a82 100%);
+  color:#fff;
+  transition:opacity var(--transition-medium), visibility var(--transition-medium);
+}
+#loading-screen.hidden{ opacity:0; visibility:hidden; pointer-events:none; }
+.loading-logo{
+  width:72px; height:72px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:40px;
+  animation:pulse-logo 1.6s ease-in-out infinite;
+}
+@keyframes pulse-logo{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.12); }
+}
+.spinner{
+  width:44px; height:44px;
+  border:4px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  border-radius:50%;
+  animation:spin .9s linear infinite;
+}
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.loading-text{ font-size:15px; font-weight:500; letter-spacing:.2px; opacity:.9; }
+
+/* ============================================================
+   ÜST MENÜ (TOP APP BAR)
+   ============================================================ */
+.topbar{
+  position:fixed; top:0; left:0; right:0; height:var(--topbar-height);
+  background:var(--md-surface);
+  box-shadow:var(--md-shadow-1);
+  display:flex; align-items:center; gap:12px;
+  padding:0 12px;
+  z-index:500;
+}
+.topbar .logo{
+  display:flex; align-items:center; gap:8px;
+  font-family:'Google Sans','Roboto',sans-serif;
+  font-weight:700; font-size:19px;
+  color:var(--md-primary);
+  white-space:nowrap;
+  flex-shrink:0;
+}
+.topbar .logo .logo-icon{ font-size:24px; }
+
+.icon-btn{
+  width:40px; height:40px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px;
+  color:var(--md-on-surface-secondary);
+  transition:background var(--transition-fast);
+  flex-shrink:0;
+}
+.icon-btn:hover{ background:rgba(95,99,104,.1); }
+.icon-btn:active{ background:rgba(95,99,104,.2); }
+
+/* Arama kutusu (üst menüde, masaüstünde) */
+.search-wrap{
+  position:relative;
+  flex:1;
+  max-width:560px;
+  margin:0 auto;
+}
+.search-box{
+  display:flex; align-items:center; gap:8px;
+  background:var(--md-background);
+  border-radius:var(--md-radius-lg);
+  padding:0 16px;
+  height:44px;
+  border:1px solid transparent;
+  transition:box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.search-box:focus-within{
+  background:var(--md-surface);
+  box-shadow:var(--md-shadow-2);
+  border-color:var(--md-border);
+}
+.search-box input{
+  flex:1; height:100%; border:none; background:transparent; outline:none;
+  font-size:15px; color:var(--md-on-surface);
+}
+.search-box .material-symbol{ font-size:20px; color:var(--md-on-surface-secondary); }
+.search-box .clear-search{ display:none; }
+.search-box.has-text .clear-search{ display:flex; }
+
+/* Son aramalar / autocomplete önerileri kapsayıcı - Google Places kendi kutusunu (.pac-container) oluşturur, burada sadece z-index düzeltmesi yapıyoruz */
+.pac-container{ z-index:3000 !important; border-radius:var(--md-radius-sm); margin-top:6px; }
+
+/* Profil / giriş alanı */
+.auth-area{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.btn-google-signin{
+  display:flex; align-items:center; gap:10px;
+  height:40px; padding:0 16px 0 6px;
+  border-radius:var(--md-radius-lg);
+  border:1px solid var(--md-border);
+  background:var(--md-surface);
+  font-size:14px; font-weight:500; color:var(--md-on-surface-secondary);
+  transition:box-shadow var(--transition-fast);
+  white-space:nowrap;
+}
+.btn-google-signin:hover{ box-shadow:var(--md-shadow-1); }
+.btn-google-signin .g-icon{
+  width:28px; height:28px; border-radius:50%; background:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;
+}
+
+.profile-chip{ position:relative; display:none; align-items:center; gap:8px; }
+.profile-chip.active{ display:flex; }
+.profile-avatar{
+  width:36px; height:36px; border-radius:50%;
+  object-fit:cover; border:2px solid var(--md-primary-light);
+  cursor:pointer;
+}
+.profile-name{
+  font-size:13px; font-weight:500; color:var(--md-on-surface);
+  max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.profile-menu{
+  position:absolute; top:52px; right:0;
+  background:var(--md-surface); border-radius:var(--md-radius-sm);
+  box-shadow:var(--md-shadow-3); min-width:220px;
+  padding:8px 0; display:none; flex-direction:column;
+  z-index:1200;
+}
+.profile-menu.open{ display:flex; }
+.profile-menu-header{ padding:12px 16px; border-bottom:1px solid var(--md-border); }
+.profile-menu-header .pmh-name{ font-weight:500; font-size:14px; }
+.profile-menu-header .pmh-email{ font-size:12px; color:var(--md-on-surface-secondary); }
+.profile-menu button{
+  padding:10px 16px; text-align:left; font-size:14px; display:flex; align-items:center; gap:10px;
+  transition:background var(--transition-fast);
+}
+.profile-menu button:hover{ background:var(--md-background); }
+
+/* ============================================================
+   GENEL SAYFA DÜZENİ (LAYOUT)
+   ============================================================ */
+.app-body{
+  position:fixed; top:var(--topbar-height); left:0; right:0; bottom:0;
+  display:flex;
+}
+
+/* Sol Panel: Favoriler */
+.favorites-panel{
+  width:320px; flex-shrink:0;
+  background:var(--md-surface);
+  border-right:1px solid var(--md-border);
+  display:flex; flex-direction:column;
+  transition:transform var(--transition-medium), width var(--transition-medium);
+  z-index:400;
+}
+.favorites-panel.collapsed{ width:0; }
+.fp-header{
+  padding:16px 20px 12px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--md-border);
+}
+.fp-header h2{ font-size:16px; font-weight:500; display:flex; align-items:center; gap:8px; }
+.fp-count{
+  background:var(--md-primary-light); color:var(--md-primary);
+  font-size:12px; font-weight:700; border-radius:10px; padding:2px 9px;
+}
+.fp-search-recent{ padding:10px 16px; border-bottom:1px solid var(--md-border); }
+.fp-search-recent h3{
+  font-size:11px; text-transform:uppercase; letter-spacing:.6px;
+  color:var(--md-on-surface-secondary); margin-bottom:6px; font-weight:700;
+}
+.recent-list{ display:flex; flex-direction:column; gap:2px; max-height:120px; overflow-y:auto; }
+.recent-item{
+  display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--md-radius-sm);
+  font-size:13px; color:var(--md-on-surface-secondary); transition:background var(--transition-fast);
+}
+.recent-item:hover{ background:var(--md-background); color:var(--md-on-surface); }
+.recent-item span.material-symbol{ font-size:16px; flex-shrink:0; }
+.recent-item span.rt-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.fp-list{ flex:1; overflow-y:auto; padding:8px; }
+.fp-empty{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; padding:40px 24px; gap:10px; color:var(--md-on-surface-secondary);
+  height:100%;
+}
+.fp-empty .material-symbol{ font-size:48px; opacity:.4; }
+.fp-empty p{ font-size:13px; line-height:1.5; }
+
+.favorite-card{
+  display:flex; align-items:flex-start; gap:12px;
+  padding:12px; border-radius:var(--md-radius-sm);
+  cursor:pointer; transition:background var(--transition-fast);
+  border:1px solid transparent;
+}
+.favorite-card:hover{ background:var(--md-background); }
+.favorite-card .fc-icon{
+  width:36px; height:36px; border-radius:50%; flex-shrink:0;
+  background:var(--md-primary-light); color:var(--md-primary);
+  display:flex; align-items:center; justify-content:center; font-size:18px;
+}
+.favorite-card .fc-body{ flex:1; min-width:0; }
+.favorite-card .fc-title{ font-size:14px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.favorite-card .fc-coords{ font-size:11px; color:var(--md-on-surface-secondary); margin-top:2px; }
+.favorite-card .fc-actions{ display:flex; gap:2px; flex-shrink:0; }
+.favorite-card .fc-actions .icon-btn{ width:32px; height:32px; font-size:16px; }
+
+/* Sol panel açma/kapama kolu (mobil) */
+.panel-toggle-handle{
+  position:absolute; left:320px; top:12px;
+  width:28px; height:28px; border-radius:50%;
+  background:var(--md-surface); box-shadow:var(--md-shadow-2);
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+  z-index:450; transition:left var(--transition-medium);
+}
+.favorites-panel.collapsed ~ .panel-toggle-handle{ left:0; }
+
+/* Harita alanı */
+.map-container{ position:relative; flex:1; }
+#map{ position:absolute; inset:0; }
+
+/* Sağ üstte harita kontrol grubu (uydu/trafik) */
+.map-top-controls{
+  position:absolute; top:16px; right:16px; z-index:100;
+  display:flex; flex-direction:column; gap:8px;
+}
+.map-control-card{
+  background:var(--md-surface); border-radius:var(--md-radius-sm);
+  box-shadow:var(--md-shadow-2); padding:4px; display:flex; flex-direction:column;
+}
+.map-toggle-btn{
+  display:flex; align-items:center; gap:8px; padding:9px 12px;
+  font-size:13px; font-weight:500; border-radius:6px; white-space:nowrap;
+  color:var(--md-on-surface-secondary); transition:background var(--transition-fast);
+}
+.map-toggle-btn.active{ color:var(--md-primary); background:var(--md-primary-light); }
+.map-toggle-btn:hover{ background:var(--md-background); }
+.map-toggle-btn .material-symbol{ font-size:18px; }
+
+/* Sağ altta yüzen aksiyon butonları (FAB) */
+.fab-container{
+  position:absolute; right:16px; bottom:28px; z-index:100;
+  display:flex; flex-direction:column; align-items:flex-end; gap:12px;
+}
+.fab{
+  display:flex; align-items:center; gap:10px;
+  height:48px; padding:0 20px 0 16px;
+  border-radius:var(--md-radius-lg);
+  background:var(--md-surface); color:var(--md-on-surface);
+  box-shadow:var(--md-shadow-2);
+  font-size:14px; font-weight:500;
+  transition:transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.fab:hover{ box-shadow:var(--md-shadow-3); transform:translateY(-1px); }
+.fab:active{ transform:translateY(0); }
+.fab .material-symbol{ font-size:20px; }
+.fab.fab-primary{ background:var(--md-primary); color:#fff; }
+.fab.fab-accent{ background:var(--md-accent); color:#fff; }
+.fab:disabled{ opacity:.5; pointer-events:none; }
+
+/* Seçili konum bilgi kartı (info card) haritanın üstünde */
+.location-info-card{
+  position:absolute; left:16px; bottom:28px; z-index:100;
+  max-width:340px;
+  background:var(--md-surface); border-radius:var(--md-radius-md);
+  box-shadow:var(--md-shadow-3); padding:16px; display:none; gap:4px; flex-direction:column;
+}
+.location-info-card.visible{ display:flex; }
+.lic-title{ font-size:15px; font-weight:500; display:flex; align-items:center; gap:8px; }
+.lic-title .material-symbol{ color:var(--md-danger); }
+.lic-address{ font-size:13px; color:var(--md-on-surface-secondary); line-height:1.4; }
+.lic-coords{ font-size:11px; color:var(--md-on-surface-secondary); font-family:monospace; }
+.lic-close{ position:absolute; top:8px; right:8px; width:28px; height:28px; font-size:16px; }
+
+/* ============================================================
+   TOAST BİLDİRİMLERİ
+   ============================================================ */
+#toast-container{
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; gap:8px; z-index:5000;
+  align-items:center; pointer-events:none;
+}
+.toast{
+  background:#323232; color:#fff; padding:14px 20px; border-radius:8px;
+  font-size:14px; box-shadow:var(--md-shadow-3);
+  display:flex; align-items:center; gap:10px;
+  opacity:0; transform:translateY(16px);
+  transition:opacity var(--transition-medium), transform var(--transition-medium);
+  max-width:90vw;
+}
+.toast.show{ opacity:1; transform:translateY(0); }
+.toast.success{ background:#1e4620; }
+.toast.error{ background:#5c1a13; }
+.toast.info{ background:#174ea6; }
+
+/* ============================================================
+   MODAL (Favori isim girişi vb.)
+   ============================================================ */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.5);
+  display:none; align-items:center; justify-content:center; z-index:4000;
+}
+.modal-overlay.open{ display:flex; }
+.modal-box{
+  background:var(--md-surface); border-radius:var(--md-radius-md);
+  box-shadow:var(--md-shadow-3); width:min(420px, 90vw);
+  padding:24px;
+}
+.modal-box h3{ font-size:18px; font-weight:500; margin-bottom:16px; }
+.modal-box input[type="text"]{
+  width:100%; padding:12px 14px; border:1px solid var(--md-border);
+  border-radius:var(--md-radius-sm); font-size:14px; outline:none;
+  background:var(--md-background); color:var(--md-on-surface);
+  transition:border-color var(--transition-fast);
+}
+.modal-box input[type="text"]:focus{ border-color:var(--md-primary); }
+.modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
+.btn-text{ padding:10px 16px; border-radius:var(--md-radius-sm); font-size:14px; font-weight:500; color:var(--md-primary); }
+.btn-text:hover{ background:var(--md-primary-light); }
+.btn-filled{ padding:10px 20px; border-radius:var(--md-radius-sm); font-size:14px; font-weight:500; background:var(--md-primary); color:#fff; }
+.btn-filled:hover{ background:var(--md-primary-dark); }
+.btn-filled:disabled{ opacity:.5; pointer-events:none; }
+
+/* ============================================================
+   MATERIAL SYMBOLS (emoji tabanlı hafif ikon çözümü - ek font indirmeden)
+   ============================================================ */
+.material-symbol{ font-family:inherit; line-height:1; display:inline-flex; }
+
+/* ============================================================
+   RESPONSIVE - MOBİL UYUM
+   ============================================================ */
+@media (max-width: 900px){
+  .search-wrap{ display:none; }
+  .favorites-panel{
+    position:fixed; top:var(--topbar-height); bottom:0; left:0;
+    transform:translateX(-100%);
+    box-shadow:var(--md-shadow-3);
+    width:85vw; max-width:340px;
+  }
+  .favorites-panel.mobile-open{ transform:translateX(0); }
+  .panel-toggle-handle{ left:0 !important; top:12px; }
+  .profile-name{ display:none; }
+  .fab span.fab-label{ display:none; }
+  .fab{ width:48px; padding:0; justify-content:center; border-radius:50%; }
+  .location-info-card{ left:8px; right:8px; max-width:none; bottom:96px; }
+  .fab-container{ bottom:96px; }
+  .map-top-controls{ top:10px; right:10px; }
+}
+@media (max-width:900px){
+  .mobile-search-bar{
+    display:flex; position:absolute; top:12px; left:12px; right:12px; z-index:150;
+  }
+}
+.mobile-search-bar{ display:none; }
+@media (min-width:901px){ .mobile-search-bar{ display:none !important; } }
+
+/* Yardımcı: ekran okuyucu için gizli metin */
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     YÜKLEME EKRANI
+     ============================================================ -->
+<div id="loading-screen">
+  <div class="loading-logo">📍</div>
+  <div class="spinner" role="status" aria-label="Yükleniyor"></div>
+  <div class="loading-text" id="loading-text">Konum Bulucu başlatılıyor...</div>
+</div>
+
+<!-- ============================================================
+     ÜST MENÜ
+     ============================================================ -->
+<header class="topbar">
+  <div class="logo"><span class="logo-icon">📍</span><span>Konum Bulucu</span></div>
+
+  <div class="search-wrap">
+    <div class="search-box" id="searchBox">
+      <span class="material-symbol">🔍</span>
+      <input type="text" id="addressInput" placeholder="Adres, semt veya yer arayın" autocomplete="off" disabled>
+      <button class="icon-btn clear-search" id="clearSearchBtn" title="Aramayı temizle" aria-label="Aramayı temizle">✕</button>
+    </div>
+  </div>
+
+  <button class="icon-btn" id="darkModeToggle" title="Karanlık modu aç/kapat" aria-label="Karanlık modu aç/kapat">🌙</button>
+
+  <div class="auth-area">
+    <button class="btn-google-signin" id="googleSignInBtn">
+      <span class="g-icon">G</span>
+      <span>Google ile Giriş Yap</span>
+    </button>
+    <div class="profile-chip" id="profileChip">
+      <span class="profile-name" id="profileName"></span>
+      <img class="profile-avatar" id="profileAvatar" src="" alt="Profil resmi">
+      <div class="profile-menu" id="profileMenu">
+        <div class="profile-menu-header">
+          <div class="pmh-name" id="pmhName"></div>
+          <div class="pmh-email" id="pmhEmail"></div>
+        </div>
+        <button id="signOutBtn"><span class="material-symbol">🚪</span> Çıkış Yap</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     ANA GÖVDE: SOL PANEL + HARİTA
+     ============================================================ -->
+<div class="app-body">
+
+  <!-- SOL PANEL: FAVORİLER -->
+  <aside class="favorites-panel" id="favoritesPanel">
+    <div class="fp-header">
+      <h2><span class="material-symbol">⭐</span> Favorilerim <span class="fp-count" id="fpCount">0</span></h2>
+      <button class="icon-btn" id="closePanelBtn" title="Paneli kapat" aria-label="Paneli kapat">✕</button>
+    </div>
+
+    <div class="fp-search-recent" id="recentSearchesWrap" style="display:none;">
+      <h3>Son Aramalar</h3>
+      <div class="recent-list" id="recentList"></div>
+    </div>
+
+    <div class="fp-list" id="favoritesList">
+      <div class="fp-empty" id="favoritesEmptyState">
+        <span class="material-symbol">🗺️</span>
+        <p>Henüz favori konumunuz yok.<br>Haritada bir yer seçip "Favoriye Kaydet" butonuna basın.</p>
+      </div>
+    </div>
+  </aside>
+
+  <button class="panel-toggle-handle" id="panelToggleHandle" title="Favoriler panelini aç/kapat" aria-label="Favoriler panelini aç/kapat">‹</button>
+
+  <!-- HARİTA ALANI -->
+  <main class="map-container">
+    <!-- Mobilde arama kutusu haritanın üzerinde yüzer -->
+    <div class="mobile-search-bar">
+      <div class="search-box" id="mobileSearchBox" style="width:100%; background:var(--md-surface); box-shadow:var(--md-shadow-2);">
+        <span class="material-symbol">🔍</span>
+        <input type="text" id="addressInputMobile" placeholder="Adres arayın" autocomplete="off" disabled>
+      </div>
+    </div>
+
+    <div id="map" role="application" aria-label="Google Harita"></div>
+
+    <!-- Uydu görünümü / Trafik katmanı kontrolleri -->
+    <div class="map-top-controls">
+      <div class="map-control-card">
+        <button class="map-toggle-btn" id="satelliteToggle"><span class="material-symbol">🛰️</span> Uydu</button>
+        <button class="map-toggle-btn" id="trafficToggle"><span class="material-symbol">🚦</span> Trafik</button>
+      </div>
+    </div>
+
+    <!-- Seçili konum bilgi kartı -->
+    <div class="location-info-card" id="locationInfoCard">
+      <button class="icon-btn lic-close" id="licCloseBtn" aria-label="Kapat">✕</button>
+      <div class="lic-title"><span class="material-symbol">📌</span><span id="licTitle">Seçili Konum</span></div>
+      <div class="lic-address" id="licAddress">—</div>
+      <div class="lic-coords" id="licCoords">—</div>
+    </div>
+
+    <!-- Sağ alt aksiyon butonları -->
+    <div class="fab-container">
+      <button class="fab" id="shareBtn" disabled title="Konumu paylaş">
+        <span class="material-symbol">📤</span><span class="fab-label">Paylaş</span>
+      </button>
+      <button class="fab" id="navigateBtn" disabled title="Navigasyonu başlat">
+        <span class="material-symbol">🚗</span><span class="fab-label">Navigasyon</span>
+      </button>
+      <button class="fab fab-accent" id="saveFavoriteBtn" disabled title="Favoriye kaydet">
+        <span class="material-symbol">⭐</span><span class="fab-label">Favoriye Kaydet</span>
+      </button>
+      <button class="fab fab-primary" id="myLocationBtn" title="Konumumu bul">
+        <span class="material-symbol">📍</span><span class="fab-label">Konumum</span>
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================
+     FAVORİ İSİMLENDİRME MODALI
+     ============================================================ -->
+<div class="modal-overlay" id="favoriteModal">
+  <div class="modal-box">
+    <h3>Favoriye Kaydet</h3>
+    <input type="text" id="favoriteNameInput" placeholder="Bu konuma bir isim verin (örn: Evim, İş yerim)" maxlength="80">
+    <div class="modal-actions">
+      <button class="btn-text" id="cancelFavoriteBtn">Vazgeç</button>
+      <button class="btn-filled" id="confirmFavoriteBtn">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast bildirimleri buraya dinamik olarak eklenir -->
+<div id="toast-container"></div>
+
+<script type="module">
+/* ================================================================
+   KONUM BULUCU - ANA UYGULAMA MANTIĞI (JavaScript ES6, Modül)
+   Firebase v10 (Auth + Firestore + Analytics) + Google Maps JS API
+   ================================================================ */
+
+// ---------- FIREBASE İÇE AKTARMALARI (CDN, v10 modüler SDK) ----------
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-analytics.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore, collection, addDoc, deleteDoc, doc, setDoc,
+  query, where, orderBy, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+// ---------- FIREBASE YAPILANDIRMASI ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyDZGfxDQ_ATaFLnoRO8dFTaotlz4K82RA8",
+  authDomain: "quiz-30349.firebaseapp.com",
+  databaseURL: "https://quiz-30349-default-rtdb.firebaseio.com",
+  projectId: "quiz-30349",
+  storageBucket: "quiz-30349.firebasestorage.app",
+  messagingSenderId: "445882613798",
+  appId: "1:445882613798:web:f878b1f8b64a3b4a5c66e7",
+  measurementId: "G-2K7W0GRYZ8"
+};
+
+// Firebase servislerini başlat
+const firebaseApp = initializeApp(firebaseConfig);
+const analytics = getAnalytics(firebaseApp);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const googleProvider = new GoogleAuthProvider();
+
+// ================================================================
+// GENEL UYGULAMA DURUMU (STATE)
+// ================================================================
+const state = {
+  currentUser: null,       // Giriş yapan kullanıcı bilgisi
+  map: null,                // Google Map nesnesi
+  geocoder: null,           // Google Geocoder nesnesi
+  activeMarker: null,       // Haritada gösterilen tek marker
+  selectedLocation: null,   // { lat, lng, address }
+  trafficLayer: null,
+  isSatelliteView: false,
+  isTrafficOn: false,
+  favoritesUnsubscribe: null, // Firestore realtime dinleyiciyi durdurmak için
+  mapsLoaded: false
+};
+
+const RECENT_SEARCHES_KEY = "konumBulucu_recentSearches";
+const DARK_MODE_KEY = "konumBulucu_darkMode";
+const MAX_RECENT_SEARCHES = 6;
+
+// ================================================================
+// DOM ELEMENT REFERANSLARI
+// ================================================================
+const el = {
+  loadingScreen: document.getElementById("loading-screen"),
+  loadingText: document.getElementById("loading-text"),
+  addressInput: document.getElementById("addressInput"),
+  addressInputMobile: document.getElementById("addressInputMobile"),
+  clearSearchBtn: document.getElementById("clearSearchBtn"),
+  searchBox: document.getElementById("searchBox"),
+  darkModeToggle: document.getElementById("darkModeToggle"),
+  googleSignInBtn: document.getElementById("googleSignInBtn"),
+  profileChip: document.getElementById("profileChip"),
+  profileAvatar: document.getElementById("profileAvatar"),
+  profileName: document.getElementById("profileName"),
+  profileMenu: document.getElementById("profileMenu"),
+  pmhName: document.getElementById("pmhName"),
+  pmhEmail: document.getElementById("pmhEmail"),
+  signOutBtn: document.getElementById("signOutBtn"),
+  favoritesPanel: document.getElementById("favoritesPanel"),
+  closePanelBtn: document.getElementById("closePanelBtn"),
+  panelToggleHandle: document.getElementById("panelToggleHandle"),
+  favoritesList: document.getElementById("favoritesList"),
+  favoritesEmptyState: document.getElementById("favoritesEmptyState"),
+  fpCount: document.getElementById("fpCount"),
+  recentSearchesWrap: document.getElementById("recentSearchesWrap"),
+  recentList: document.getElementById("recentList"),
+  satelliteToggle: document.getElementById("satelliteToggle"),
+  trafficToggle: document.getElementById("trafficToggle"),
+  locationInfoCard: document.getElementById("locationInfoCard"),
+  licTitle: document.getElementById("licTitle"),
+  licAddress: document.getElementById("licAddress"),
+  licCoords: document.getElementById("licCoords"),
+  licCloseBtn: document.getElementById("licCloseBtn"),
+  shareBtn: document.getElementById("shareBtn"),
+  navigateBtn: document.getElementById("navigateBtn"),
+  saveFavoriteBtn: document.getElementById("saveFavoriteBtn"),
+  myLocationBtn: document.getElementById("myLocationBtn"),
+  favoriteModal: document.getElementById("favoriteModal"),
+  favoriteNameInput: document.getElementById("favoriteNameInput"),
+  cancelFavoriteBtn: document.getElementById("cancelFavoriteBtn"),
+  confirmFavoriteBtn: document.getElementById("confirmFavoriteBtn"),
+  toastContainer: document.getElementById("toast-container")
+};
+
+// ================================================================
+// TOAST BİLDİRİM FONKSİYONU
+// ================================================================
+function showToast(message, type = "info", duration = 3200) {
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  const iconMap = { success: "✅", error: "⚠️", info: "ℹ️" };
+  toast.innerHTML = `<span>${iconMap[type] || ""}</span><span>${message}</span>`;
+  el.toastContainer.appendChild(toast);
+  // Bir sonraki frame'de animasyon sınıfını ekle
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ================================================================
+// KARANLIK MOD (DARK MODE)
+// ================================================================
+function initDarkMode() {
+  const saved = localStorage.getItem(DARK_MODE_KEY);
+  if (saved === "true") {
+    document.body.classList.add("dark-mode");
+    el.darkModeToggle.textContent = "☀️";
+  }
+}
+function toggleDarkMode() {
+  const isDark = document.body.classList.toggle("dark-mode");
+  el.darkModeToggle.textContent = isDark ? "☀️" : "🌙";
+  localStorage.setItem(DARK_MODE_KEY, String(isDark));
+  showToast(isDark ? "Karanlık mod açıldı" : "Aydınlık mod açıldı", "info", 1600);
+}
+
+// ================================================================
+// KİMLİK DOĞRULAMA (AUTHENTICATION)
+// ================================================================
+
+// Google ile giriş yap
+async function handleGoogleSignIn() {
+  try {
+    el.googleSignInBtn.disabled = true;
+    const result = await signInWithPopup(auth, googleProvider);
+    // Kullanıcı bilgisini Firestore'daki "users" koleksiyonuna kaydet/güncelle
+    await saveUserToFirestore(result.user);
+    logEvent(analytics, "login", { method: "Google" });
+    showToast(`Hoş geldin, ${result.user.displayName || "Kullanıcı"}!`, "success");
+  } catch (error) {
+    console.error("Google giriş hatası:", error);
+    if (error.code === "auth/popup-closed-by-user") {
+      showToast("Giriş penceresi kapatıldı.", "info");
+    } else {
+      showToast("Giriş sırasında bir hata oluştu: " + error.message, "error");
+    }
+  } finally {
+    el.googleSignInBtn.disabled = false;
+  }
+}
+
+// Çıkış yap
+async function handleSignOut() {
+  try {
+    await signOut(auth);
+    showToast("Başarıyla çıkış yapıldı.", "success");
+  } catch (error) {
+    console.error("Çıkış hatası:", error);
+    showToast("Çıkış sırasında bir hata oluştu.", "error");
+  }
+}
+
+// Kullanıcı profil bilgisini Firestore'a yaz (users/{uid})
+async function saveUserToFirestore(user) {
+  try {
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      displayName: user.displayName || "",
+      email: user.email || "",
+      photoURL: user.photoURL || "",
+      lastLogin: serverTimestamp()
+    }, { merge: true });
+  } catch (error) {
+    console.error("Kullanıcı Firestore'a kaydedilemedi:", error);
+  }
+}
+
+// Kimlik doğrulama durumu her değiştiğinde tetiklenir
+onAuthStateChanged(auth, (user) => {
+  state.currentUser = user;
+  if (user) {
+    // ---- Giriş yapılmış durum ----
+    el.googleSignInBtn.style.display = "none";
+    el.profileChip.classList.add("active");
+    el.profileAvatar.src = user.photoURL || "";
+    el.profileName.textContent = user.displayName || user.email || "Kullanıcı";
+    el.pmhName.textContent = user.displayName || "Kullanıcı";
+    el.pmhEmail.textContent = user.email || "";
+
+    // Giriş yaptıktan sonra Google Maps'i yükle (istenen davranış)
+    ensureGoogleMapsLoaded();
+
+    // Favorileri Firestore'dan canlı olarak dinlemeye başla
+    subscribeToFavorites(user.uid);
+
+    hideLoadingScreen();
+  } else {
+    // ---- Çıkış yapılmış / giriş yapılmamış durum ----
+    el.googleSignInBtn.style.display = "flex";
+    el.profileChip.classList.remove("active");
+    el.profileMenu.classList.remove("open");
+    el.favoritesList.innerHTML = "";
+    el.favoritesList.appendChild(el.favoritesEmptyState);
+    el.fpCount.textContent = "0";
+
+    if (state.favoritesUnsubscribe) {
+      state.favoritesUnsubscribe();
+      state.favoritesUnsubscribe = null;
+    }
+    hideLoadingScreen();
+  }
+});
+
+function hideLoadingScreen() {
+  el.loadingScreen.classList.add("hidden");
+}
+
+// ================================================================
+// GOOGLE MAPS - DİNAMİK YÜKLEME
+// Not: API script'i sadece kullanıcı giriş yaptıktan sonra eklenir.
+// GOOGLE_MAPS_API_KEY yerine geliştiricinin kendi anahtarını koyması gerekir.
+// ================================================================
+function ensureGoogleMapsLoaded() {
+  if (state.mapsLoaded || document.getElementById("google-maps-script")) return;
+
+  window.initMap = initMap; // Google Maps callback'i global scope'ta bulmalı
+
+  const script = document.createElement("script");
+  script.id = "google-maps-script";
+  script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyByWsxXWfePwDyabb7KrXjds3GKb8UBmlA&libraries=places&callback=initMap&loading=async";
+  script.async = true;
+  script.defer = true;
+  script.onerror = () => {
+    showToast("Google Maps yüklenemedi. API anahtarınızı kontrol edin.", "error", 6000);
+  };
+  document.head.appendChild(script);
+}
+
+// ================================================================
+// HARİTA BAŞLATMA (Google Maps API callback fonksiyonu)
+// ================================================================
+function initMap() {
+  state.mapsLoaded = true;
+
+  // Varsayılan merkez: Ankara, Türkiye
+  const defaultCenter = { lat: 39.9334, lng: 32.8597 };
+
+  state.map = new google.maps.Map(document.getElementById("map"), {
+    center: defaultCenter,
+    zoom: 12,
+    mapTypeControl: false,   // Kendi uydu/harita butonumuzu kullanıyoruz
+    streetViewControl: true,
+    fullscreenControl: false,
+    zoomControl: true,       // Yakınlaştırma kontrolü aktif
+    zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER },
+    clickableIcons: false,
+    styles: document.body.classList.contains("dark-mode") ? getDarkMapStyle() : []
+  });
+
+  state.geocoder = new google.maps.Geocoder();
+  state.trafficLayer = new google.maps.TrafficLayer();
+
+  // Harita tıklanınca marker oluştur / taşı
+  state.map.addListener("click", (e) => {
+    placeMarker(e.latLng.lat(), e.latLng.lng());
+  });
+
+  // Places Autocomplete - masaüstü ve mobil arama kutuları
+  setupAutocomplete(el.addressInput);
+  setupAutocomplete(el.addressInputMobile);
+
+  el.addressInput.disabled = false;
+  el.addressInputMobile.disabled = false;
+
+  renderRecentSearches();
+  showToast("Harita hazır. Arama yapabilir veya haritaya tıklayabilirsiniz.", "success");
+}
+
+// Karanlık mod için Google Maps stil şeması
+function getDarkMapStyle() {
+  return [
+    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+    { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] }
+  ];
+}
+
+// ================================================================
+// PLACES AUTOCOMPLETE KURULUMU
+// ================================================================
+function setupAutocomplete(inputEl) {
+  const autocomplete = new google.maps.places.Autocomplete(inputEl, {
+    fields: ["geometry", "formatted_address", "name"]
+  });
+  autocomplete.bindTo("bounds", state.map);
+
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace();
+    if (!place.geometry || !place.geometry.location) {
+      showToast("Bu yer için konum bilgisi bulunamadı.", "error");
+      return;
+    }
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    const address = place.formatted_address || place.name;
+
+    state.map.panTo({ lat, lng });
+    state.map.setZoom(16);
+    placeMarker(lat, lng, address);
+    saveRecentSearch(address);
+  });
+
+  inputEl.addEventListener("input", () => {
+    el.searchBox.classList.toggle("has-text", inputEl.value.length > 0);
+  });
+}
+
+// ================================================================
+// MARKER YÖNETİMİ (oluşturma, sürükleme, konumlandırma)
+// ================================================================
+function placeMarker(lat, lng, knownAddress = null) {
+  const position = { lat, lng };
+
+  if (state.activeMarker) {
+    state.activeMarker.setPosition(position);
+  } else {
+    state.activeMarker = new google.maps.Marker({
+      position,
+      map: state.map,
+      draggable: true,          // Marker sürüklenebilir
+      animation: google.maps.Animation.DROP,
+      title: "Seçili Konum"
+    });
+
+    // Marker sürüklenince yeni konumu güncelle ve adresi tekrar çöz
+    state.activeMarker.addListener("dragend", (e) => {
+      placeMarker(e.latLng.lat(), e.latLng.lng());
+    });
+  }
+
+  state.selectedLocation = { lat, lng, address: knownAddress };
+  updateLocationInfoCard(knownAddress);
+  enableActionButtons(true);
+
+  if (!knownAddress) {
+    reverseGeocode(lat, lng);
+  }
+}
+
+// Koordinattan adres bulma (Reverse Geocoding)
+function reverseGeocode(lat, lng) {
+  el.licAddress.textContent = "Adres çözümleniyor...";
+  state.geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+    if (status === "OK" && results[0]) {
+      const address = results[0].formatted_address;
+      state.selectedLocation.address = address;
+      el.licAddress.textContent = address;
+    } else {
+      state.selectedLocation.address = "Adres bulunamadı";
+      el.licAddress.textContent = "Adres bulunamadı (koordinatlar kullanılacak)";
+    }
+  });
+}
+
+// Bilgi kartını güncelle
+function updateLocationInfoCard(address) {
+  const { lat, lng } = state.selectedLocation;
+  el.licAddress.textContent = address || "Adres çözümleniyor...";
+  el.licCoords.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  el.locationInfoCard.classList.add("visible");
+}
+
+function enableActionButtons(enabled) {
+  el.saveFavoriteBtn.disabled = !enabled;
+  el.navigateBtn.disabled = !enabled;
+  el.shareBtn.disabled = !enabled;
+}
+
+// ================================================================
+// MEVCUT KONUM (GEOLOCATION)
+// ================================================================
+function handleMyLocation() {
+  if (!state.map) {
+    showToast("Harita henüz hazır değil.", "error");
+    return;
+  }
+  if (!navigator.geolocation) {
+    showToast("Tarayıcınız konum servisini desteklemiyor.", "error");
+    return;
+  }
+
+  el.myLocationBtn.disabled = true;
+  showToast("Konumunuz belirleniyor...", "info", 2000);
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      state.map.panTo({ lat: latitude, lng: longitude });
+      state.map.setZoom(16);
+      placeMarker(latitude, longitude);
+      showToast("Mevcut konumunuz bulundu.", "success");
+      el.myLocationBtn.disabled = false;
+    },
+    (error) => {
+      console.error("Geolocation hatası:", error);
+      let msg = "Konum alınamadı.";
+      if (error.code === 1) msg = "Konum izni reddedildi. Tarayıcı ayarlarından izin verin.";
+      else if (error.code === 2) msg = "Konum bilgisi kullanılamıyor.";
+      else if (error.code === 3) msg = "Konum alma işlemi zaman aşımına uğradı.";
+      showToast(msg, "error", 4500);
+      el.myLocationBtn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+// ================================================================
+// UYDU GÖRÜNÜMÜ / TRAFİK KATMANI
+// ================================================================
+function toggleSatelliteView() {
+  if (!state.map) return;
+  state.isSatelliteView = !state.isSatelliteView;
+  state.map.setMapTypeId(state.isSatelliteView ? "hybrid" : "roadmap");
+  el.satelliteToggle.classList.toggle("active", state.isSatelliteView);
+}
+
+function toggleTrafficLayer() {
+  if (!state.map) return;
+  state.isTrafficOn = !state.isTrafficOn;
+  state.trafficLayer.setMap(state.isTrafficOn ? state.map : null);
+  el.trafficToggle.classList.toggle("active", state.isTrafficOn);
+}
+
+// ================================================================
+// NAVİGASYON VE PAYLAŞIM
+// ================================================================
+function handleNavigate() {
+  if (!state.selectedLocation) return;
+  const { lat, lng } = state.selectedLocation;
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+  window.open(url, "_blank", "noopener,noreferrer");
+  logEvent(analytics, "navigation_started");
+}
+
+async function handleShare() {
+  if (!state.selectedLocation) return;
+  const { lat, lng, address } = state.selectedLocation;
+  const shareUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  const shareText = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "Konum Bulucu - Paylaşılan Konum",
+        text: shareText,
+        url: shareUrl
+      });
+      showToast("Konum paylaşıldı.", "success");
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Paylaşım hatası:", error);
+        showToast("Paylaşım iptal edildi veya başarısız oldu.", "info");
+      }
+    }
+  } else {
+    // navigator.share desteklenmiyorsa panoya kopyala
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast("Paylaşım desteklenmiyor, konum linki panoya kopyalandı.", "success", 4000);
+    } catch (error) {
+      showToast("Konum linki: " + shareUrl, "info", 6000);
+    }
+  }
+}
+
+// ================================================================
+// FAVORİLER - FIRESTORE İŞLEMLERİ
+// ================================================================
+
+// Favori kaydetme modalını aç
+function openFavoriteModal() {
+  if (!state.currentUser) {
+    showToast("Favoriye kaydetmek için giriş yapmalısınız.", "error");
+    return;
+  }
+  if (!state.selectedLocation) return;
+  el.favoriteNameInput.value = state.selectedLocation.address || "";
+  el.favoriteModal.classList.add("open");
+  el.favoriteNameInput.focus();
+}
+function closeFavoriteModal() {
+  el.favoriteModal.classList.remove("open");
+}
+
+// Favoriyi Firestore'a kaydet (favorites koleksiyonu)
+async function confirmSaveFavorite() {
+  const name = el.favoriteNameInput.value.trim();
+  if (!name) {
+    showToast("Lütfen konum için bir isim girin.", "error");
+    return;
+  }
+  if (!state.currentUser || !state.selectedLocation) return;
+
+  try {
+    el.confirmFavoriteBtn.disabled = true;
+    await addDoc(collection(db, "favorites"), {
+      uid: state.currentUser.uid,
+      name: name,
+      latitude: state.selectedLocation.lat,
+      longitude: state.selectedLocation.lng,
+      createdAt: serverTimestamp()
+    });
+    showToast(`"${name}" favorilere eklendi.`, "success");
+    logEvent(analytics, "add_to_favorites");
+    closeFavoriteModal();
+  } catch (error) {
+    console.error("Favori kaydetme hatası:", error);
+    showToast("Favori kaydedilemedi: " + error.message, "error");
+  } finally {
+    el.confirmFavoriteBtn.disabled = false;
+  }
+}
+
+// Kullanıcının favorilerini Firestore'dan gerçek zamanlı dinle
+function subscribeToFavorites(uid) {
+  if (state.favoritesUnsubscribe) state.favoritesUnsubscribe();
+
+  const favQuery = query(
+    collection(db, "favorites"),
+    where("uid", "==", uid),
+    orderBy("createdAt", "desc")
+  );
+
+  state.favoritesUnsubscribe = onSnapshot(
+    favQuery,
+    (snapshot) => {
+      const favorites = [];
+      snapshot.forEach((docSnap) => {
+        favorites.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      renderFavorites(favorites);
+    },
+    (error) => {
+      console.error("Favoriler dinlenirken hata:", error);
+      showToast("Favoriler yüklenirken bir hata oluştu.", "error");
+    }
+  );
+}
+
+// Favori listesini ekrana çiz
+function renderFavorites(favorites) {
+  el.fpCount.textContent = String(favorites.length);
+  el.favoritesList.innerHTML = "";
+
+  if (favorites.length === 0) {
+    el.favoritesList.appendChild(el.favoritesEmptyState);
+    return;
+  }
+
+  favorites.forEach((fav) => {
+    const card = document.createElement("div");
+    card.className = "favorite-card";
+    card.innerHTML = `
+      <div class="fc-icon">⭐</div>
+      <div class="fc-body">
+        <div class="fc-title">${escapeHtml(fav.name)}</div>
+        <div class="fc-coords">${fav.latitude.toFixed(5)}, ${fav.longitude.toFixed(5)}</div>
+      </div>
+      <div class="fc-actions">
+        <button class="icon-btn fc-goto" title="Haritada göster" aria-label="Haritada göster">🗺️</button>
+        <button class="icon-btn fc-delete" title="Favoriden sil" aria-label="Favoriden sil">🗑️</button>
+      </div>
+    `;
+
+    // Karta tıklayınca haritada göster
+    card.querySelector(".fc-goto").addEventListener("click", (e) => {
+      e.stopPropagation();
+      goToFavorite(fav);
+    });
+    card.addEventListener("click", () => goToFavorite(fav));
+
+    // Sil butonu
+    card.querySelector(".fc-delete").addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteFavorite(fav.id, fav.name);
+    });
+
+    el.favoritesList.appendChild(card);
+  });
+}
+
+// Favoriye tıklanınca haritayı o konuma götür
+function goToFavorite(fav) {
+  if (!state.map) {
+    showToast("Harita henüz hazır değil.", "error");
+    return;
+  }
+  state.map.panTo({ lat: fav.latitude, lng: fav.longitude });
+  state.map.setZoom(16);
+  placeMarker(fav.latitude, fav.longitude, fav.name);
+
+  // Mobilde favoriye gidince paneli kapat
+  if (window.innerWidth <= 900) {
+    el.favoritesPanel.classList.remove("mobile-open");
+  }
+}
+
+// Firestore'dan favori sil
+async function deleteFavorite(favId, favName) {
+  const confirmed = window.confirm(`"${favName}" favorilerden silinsin mi?`);
+  if (!confirmed) return;
+
+  try {
+    await deleteDoc(doc(db, "favorites", favId));
+    showToast("Favori silindi.", "success");
+  } catch (error) {
+    console.error("Favori silme hatası:", error);
+    showToast("Favori silinemedi: " + error.message, "error");
+  }
+}
+
+// HTML enjeksiyonunu önlemek için basit escape fonksiyonu
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ================================================================
+// SON ARAMALAR (localStorage)
+// ================================================================
+function saveRecentSearch(address) {
+  if (!address) return;
+  let recent = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
+  recent = recent.filter((item) => item !== address);
+  recent.unshift(address);
+  recent = recent.slice(0, MAX_RECENT_SEARCHES);
+  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(recent));
+  renderRecentSearches();
+}
+
+function renderRecentSearches() {
+  const recent = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
+  el.recentList.innerHTML = "";
+
+  if (recent.length === 0) {
+    el.recentSearchesWrap.style.display = "none";
+    return;
+  }
+  el.recentSearchesWrap.style.display = "block";
+
+  recent.forEach((address) => {
+    const item = document.createElement("div");
+    item.className = "recent-item";
+    item.innerHTML = `<span class="material-symbol">🕑</span><span class="rt-text">${escapeHtml(address)}</span>`;
+    item.addEventListener("click", () => {
+      geocodeAddressAndShow(address);
+    });
+    el.recentList.appendChild(item);
+  });
+}
+
+// Bir adres metnini geocode edip haritada göster (son aramalara tıklanınca)
+function geocodeAddressAndShow(address) {
+  if (!state.geocoder) {
+    showToast("Harita henüz hazır değil.", "error");
+    return;
+  }
+  state.geocoder.geocode({ address }, (results, status) => {
+    if (status === "OK" && results[0]) {
+      const loc = results[0].geometry.location;
+      state.map.panTo(loc);
+      state.map.setZoom(16);
+      placeMarker(loc.lat(), loc.lng(), results[0].formatted_address);
+    } else {
+      showToast("Bu adres bulunamadı.", "error");
+    }
+  });
+}
+
+// ================================================================
+// SOL PANEL AÇMA / KAPATMA
+// ================================================================
+function togglePanel() {
+  if (window.innerWidth <= 900) {
+    el.favoritesPanel.classList.toggle("mobile-open");
+  } else {
+    el.favoritesPanel.classList.toggle("collapsed");
+    el.panelToggleHandle.textContent = el.favoritesPanel.classList.contains("collapsed") ? "›" : "‹";
+  }
+}
+
+// ================================================================
+// OLAY DİNLEYİCİLERİ (EVENT LISTENERS)
+// ================================================================
+el.darkModeToggle.addEventListener("click", () => {
+  toggleDarkMode();
+  if (state.map) {
+    state.map.setOptions({ styles: document.body.classList.contains("dark-mode") ? getDarkMapStyle() : [] });
+  }
+});
+
+el.googleSignInBtn.addEventListener("click", handleGoogleSignIn);
+el.signOutBtn.addEventListener("click", () => {
+  handleSignOut();
+  el.profileMenu.classList.remove("open");
+});
+
+el.profileAvatar.addEventListener("click", () => {
+  el.profileMenu.classList.toggle("open");
+});
+document.addEventListener("click", (e) => {
+  if (!el.profileChip.contains(e.target)) {
+    el.profileMenu.classList.remove("open");
+  }
+});
+
+el.clearSearchBtn.addEventListener("click", () => {
+  el.addressInput.value = "";
+  el.searchBox.classList.remove("has-text");
+  el.addressInput.focus();
+});
+
+el.closePanelBtn.addEventListener("click", togglePanel);
+el.panelToggleHandle.addEventListener("click", togglePanel);
+
+el.satelliteToggle.addEventListener("click", toggleSatelliteView);
+el.trafficToggle.addEventListener("click", toggleTrafficLayer);
+
+el.myLocationBtn.addEventListener("click", handleMyLocation);
+el.saveFavoriteBtn.addEventListener("click", openFavoriteModal);
+el.navigateBtn.addEventListener("click", handleNavigate);
+el.shareBtn.addEventListener("click", handleShare);
+
+el.licCloseBtn.addEventListener("click", () => {
+  el.locationInfoCard.classList.remove("visible");
+});
+
+el.cancelFavoriteBtn.addEventListener("click", closeFavoriteModal);
+el.confirmFavoriteBtn.addEventListener("click", confirmSaveFavorite);
+el.favoriteModal.addEventListener("click", (e) => {
+  if (e.target === el.favoriteModal) closeFavoriteModal();
+});
+el.favoriteNameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") confirmSaveFavorite();
+});
+
+// ================================================================
+// PWA DESTEĞİ (Manifest + Service Worker - tek dosya içinde inline üretim)
+// ================================================================
+function setupPWA() {
+  try {
+    // Manifest içeriğini JS içinde oluşturup Blob URL olarak bağlıyoruz
+    const manifest = {
+      name: "Konum Bulucu",
+      short_name: "KonumBulucu",
+      description: "Google Maps tabanlı konum bulma ve favori kaydetme uygulaması",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#1a73e8",
+      theme_color: "#1a73e8",
+      icons: [
+        {
+          src: "data:image/svg+xml," + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%231a73e8"/><text x="50" y="66" font-size="55" text-anchor="middle" fill="white">📍</text></svg>'
+          ),
+          sizes: "192x192",
+          type: "image/svg+xml"
+        }
+      ]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+    const manifestUrl = URL.createObjectURL(manifestBlob);
+    const link = document.createElement("link");
+    link.rel = "manifest";
+    link.href = manifestUrl;
+    document.head.appendChild(link);
+  } catch (error) {
+    console.warn("PWA manifest oluşturulamadı:", error);
+  }
+
+  // Service worker desteği varsa temel bir offline-cache stratejisi dene
+  if ("serviceWorker" in navigator) {
+    const swCode = `
+      self.addEventListener('install', (e) => self.skipWaiting());
+      self.addEventListener('activate', (e) => self.clients.claim());
+      self.addEventListener('fetch', (e) => {
+        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+      });
+    `;
+    try {
+      const swBlob = new Blob([swCode], { type: "application/javascript" });
+      const swUrl = URL.createObjectURL(swBlob);
+      navigator.serviceWorker.register(swUrl).catch((err) => {
+        console.warn("Service worker kaydı bu tarayıcıda desteklenmiyor olabilir:", err.message);
+      });
+    } catch (error) {
+      console.warn("Service worker oluşturulamadı:", error);
+    }
+  }
+}
+
+// ================================================================
+// UYGULAMA BAŞLATMA
+// ================================================================
+function init() {
+  initDarkMode();
+  setupPWA();
+  el.loadingText.textContent = "Giriş bekleniyor...";
+
+  // Eğer 6 saniye içinde auth durumu netleşmezse yükleme ekranını yine de kapat
+  setTimeout(() => {
+    if (!el.loadingScreen.classList.contains("hidden")) {
+      hideLoadingScreen();
+    }
+  }, 6000);
+}
+
+init();
+</script>
+
+</body>
+</html>
